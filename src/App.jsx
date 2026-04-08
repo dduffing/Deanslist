@@ -6,10 +6,17 @@ const REGION_STORAGE_KEY = "selected_region_id";
 function App() {
   const [status, setStatus] = useState("Checking connection...");
   const [error, setError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
   const [regions, setRegions] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState("");
   const [listings, setListings] = useState([]);
   const [isLoadingListings, setIsLoadingListings] = useState(false);
+  const [session, setSession] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [myListings, setMyListings] = useState([]);
+  const [isLoadingMyListings, setIsLoadingMyListings] = useState(false);
 
   useEffect(() => {
     async function checkConnection() {
@@ -60,6 +67,41 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const { client, configError } = getSupabaseClient();
+    if (configError || !client) {
+      setIsAuthLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function initSession() {
+      const { data, error: sessionError } = await client.auth.getSession();
+      if (!isMounted) return;
+
+      if (sessionError) {
+        setError(sessionError.message);
+      } else {
+        setSession(data.session ?? null);
+      }
+      setIsAuthLoading(false);
+    }
+
+    initSession();
+
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     async function loadListings() {
       const { client, configError } = getSupabaseClient();
 
@@ -92,6 +134,36 @@ function App() {
     loadListings();
   }, [selectedRegionId]);
 
+  useEffect(() => {
+    async function loadMyListings() {
+      const { client, configError } = getSupabaseClient();
+      if (configError || !client || !session?.user?.id) {
+        setMyListings([]);
+        return;
+      }
+
+      setIsLoadingMyListings(true);
+      const { data, error: myListingsError } = await client
+        .from("listings")
+        .select("id, title, status, created_at")
+        .eq("seller_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (myListingsError) {
+        setError(myListingsError.message);
+        setMyListings([]);
+        setIsLoadingMyListings(false);
+        return;
+      }
+
+      setMyListings(data ?? []);
+      setIsLoadingMyListings(false);
+    }
+
+    loadMyListings();
+  }, [session]);
+
   function handleRegionChange(event) {
     const nextRegionId = event.target.value;
     setSelectedRegionId(nextRegionId);
@@ -105,6 +177,67 @@ function App() {
     }
     if (listing.price_min) return `$${Number(listing.price_min)}`;
     return "Contact for price";
+  }
+
+  async function handleSignUp(event) {
+    event.preventDefault();
+    const { client, configError } = getSupabaseClient();
+    if (configError || !client) {
+      setAuthMessage("Supabase auth is not configured.");
+      return;
+    }
+
+    const { error: signUpError } = await client.auth.signUp({
+      email: emailInput.trim(),
+      password: passwordInput,
+    });
+
+    if (signUpError) {
+      setAuthMessage(signUpError.message);
+      return;
+    }
+
+    setAuthMessage(
+      "Sign-up submitted. Check your email for confirmation if required."
+    );
+  }
+
+  async function handleSignIn(event) {
+    event.preventDefault();
+    const { client, configError } = getSupabaseClient();
+    if (configError || !client) {
+      setAuthMessage("Supabase auth is not configured.");
+      return;
+    }
+
+    const { error: signInError } = await client.auth.signInWithPassword({
+      email: emailInput.trim(),
+      password: passwordInput,
+    });
+
+    if (signInError) {
+      setAuthMessage(signInError.message);
+      return;
+    }
+
+    setAuthMessage("Signed in successfully.");
+  }
+
+  async function handleSignOut() {
+    const { client, configError } = getSupabaseClient();
+    if (configError || !client) {
+      setAuthMessage("Supabase auth is not configured.");
+      return;
+    }
+
+    const { error: signOutError } = await client.auth.signOut();
+    if (signOutError) {
+      setAuthMessage(signOutError.message);
+      return;
+    }
+
+    setAuthMessage("Signed out.");
+    setMyListings([]);
   }
 
   return (
@@ -141,6 +274,57 @@ function App() {
       </section>
 
       <section className="card">
+        <h2>Account</h2>
+        {isAuthLoading ? <p>Checking session...</p> : null}
+        {!isAuthLoading && !session ? (
+          <form className="auth-form">
+            <label>
+              Email
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(event) => setEmailInput(event.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(event) => setPasswordInput(event.target.value)}
+                placeholder="At least 6 characters"
+                minLength={6}
+                required
+              />
+            </label>
+            <div className="auth-actions">
+              <button type="button" onClick={handleSignIn}>
+                Sign in
+              </button>
+              <button type="button" className="secondary" onClick={handleSignUp}>
+                Create account
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {!isAuthLoading && session ? (
+          <div className="account-shell">
+            <p>
+              Signed in as <strong>{session.user.email}</strong>
+            </p>
+            <button type="button" onClick={handleSignOut}>
+              Sign out
+            </button>
+          </div>
+        ) : null}
+
+        {authMessage ? <p className="hint">{authMessage}</p> : null}
+      </section>
+
+      <section className="card">
         <h2>Recent listings</h2>
         {isLoadingListings ? <p>Loading listings...</p> : null}
         {!isLoadingListings && listings.length === 0 ? (
@@ -155,6 +339,28 @@ function App() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="card">
+        <h2>My account</h2>
+        {!session ? (
+          <p>Sign in to view your listings dashboard.</p>
+        ) : (
+          <>
+            {isLoadingMyListings ? <p>Loading your listings...</p> : null}
+            {!isLoadingMyListings && myListings.length === 0 ? (
+              <p>You have no listings yet.</p>
+            ) : null}
+            <ul className="simple-list">
+              {myListings.map((listing) => (
+                <li key={listing.id}>
+                  <span>{listing.title}</span>
+                  <span className="badge">{listing.status}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </section>
     </main>
   );
