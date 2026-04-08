@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "./lib/supabaseClient";
+import { getSupabaseClient } from "./lib/supabaseClient";
 
 function App() {
   const [status, setStatus] = useState("Checking connection...");
@@ -7,7 +7,21 @@ function App() {
 
   useEffect(() => {
     async function checkConnection() {
-      const { error: queryError } = await supabase
+      const { client, configError } = getSupabaseClient();
+
+      if (configError) {
+        setStatus("App loaded, but Supabase is not configured yet.");
+        setError(configError);
+        return;
+      }
+
+      if (!client) {
+        setStatus("App loaded, but Supabase client is unavailable.");
+        setError("Unexpected Supabase client state.");
+        return;
+      }
+
+      const { error: queryError } = await client
         .from("regions")
         .select("id")
         .limit(1);
