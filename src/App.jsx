@@ -307,6 +307,11 @@ function App() {
                 Create account
               </button>
             </div>
+            <p className="hint">
+              After sign-up, check your email and confirm your account before
+              signing in. If a link opens localhost, update Supabase Auth Site URL
+              and Redirect URLs to this Netlify domain.
+            </p>
           </form>
         ) : null}
 
