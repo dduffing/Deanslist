@@ -348,6 +348,22 @@ function App() {
           <p className="subtitle">React + Vite + Supabase starter</p>
         </div>
         <div className="top-ribbon">
+          <select
+            className="region-select region-select-ribbon"
+            value={selectedRegionId}
+            onChange={handleRegionChange}
+            disabled={regions.length === 0}
+          >
+            {regions.length === 0 ? (
+              <option value="">No region</option>
+            ) : (
+              regions.map((region) => (
+                <option key={region.id} value={region.id}>
+                  {region.display_name}
+                </option>
+              ))
+            )}
+          </select>
           <span
             className={`status-pill ${connectionToneClass()}`}
             title={error ? `${status} - ${error}` : status}
@@ -430,28 +446,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      <section className="card">
-        <div className="row">
-          <h2>Region</h2>
-          <select
-            className="region-select"
-            value={selectedRegionId}
-            onChange={handleRegionChange}
-            disabled={regions.length === 0}
-          >
-            {regions.length === 0 ? (
-              <option value="">No regions available</option>
-            ) : (
-              regions.map((region) => (
-                <option key={region.id} value={region.id}>
-                  {region.display_name}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-      </section>
 
       <Routes>
         <Route path="/" element={<AllListingsRoute />} />

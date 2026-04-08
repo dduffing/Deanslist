@@ -15,7 +15,7 @@ body {
 .app-shell {
   max-width: 900px;
   margin: 0 auto;
-  padding: 2rem 1rem 3rem;
+  padding: 0 1rem 3rem;
 }
 
 .top-bar {
@@ -23,15 +23,21 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+  background: #4f46cf;
+  color: #fff;
+  border-radius: 0 0 14px 14px;
+  margin: 0 -1rem 1rem;
+  padding: 1rem 1rem 0.9rem;
 }
 
 h1 {
+  margin-top: 0;
   margin-bottom: 0.25rem;
 }
 
 .subtitle {
   margin-top: 0;
-  color: #5f5f77;
+  color: #d9d6ff;
 }
 
 .card {
@@ -59,6 +65,14 @@ h1 {
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   background: #fff;
+}
+
+.region-select-ribbon {
+  min-width: 210px;
+  min-height: 32px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border-color: #c7c3ff;
 }
 
 .listing-grid {
@@ -123,7 +137,7 @@ h1 {
 .status-pill,
 .icon-pill {
   border-radius: 999px;
-  border: 1px solid #d9d9ea;
+  border: 1px solid #c7c3ff;
   background: #fff;
   min-height: 32px;
   padding: 0.2rem 0.6rem;
@@ -265,4 +279,5 @@ button.secondary {
   border: 1px solid #ffc8c8;
   border-radius: 8px;
   padding: 0.75rem;
+  margin-top: 1rem;
 }
