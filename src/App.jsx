@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { getSupabaseClient } from "./lib/supabaseClient";
 
 const REGION_STORAGE_KEY = "selected_region_id";
@@ -8,6 +9,7 @@ function App() {
   const [error, setError] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [regions, setRegions] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState("");
   const [listings, setListings] = useState([]);
   const [isLoadingListings, setIsLoadingListings] = useState(false);
@@ -38,15 +40,22 @@ function App() {
         .from("regions")
         .select("id, display_name, slug")
         .order("display_name", { ascending: true });
+      const { data: categoryRows, error: categoryError } = await client
+        .from("categories")
+        .select("id, slug, name, parent_id")
+        .is("parent_id", null)
+        .order("name", { ascending: true });
 
-      if (queryError) {
+      if (queryError || categoryError) {
         setStatus("Connected to Supabase, but schema is not ready yet.");
-        setError(queryError.message);
+        setError(queryError?.message ?? categoryError?.message ?? "Schema query failed.");
         return;
       }
 
       const safeRegions = regionRows ?? [];
+      const safeCategories = categoryRows ?? [];
       setRegions(safeRegions);
+      setCategories(safeCategories);
 
       if (safeRegions.length === 0) {
         setStatus("Supabase is connected, but no regions are seeded yet.");
@@ -100,39 +109,6 @@ function App() {
       subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    async function loadListings() {
-      const { client, configError } = getSupabaseClient();
-
-      if (configError || !client || !selectedRegionId) {
-        setListings([]);
-        return;
-      }
-
-      setIsLoadingListings(true);
-
-      const { data, error: listingsError } = await client
-        .from("listings")
-        .select("id, title, price_label, price_min, price_max, location_text, created_at")
-        .eq("region_id", selectedRegionId)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(24);
-
-      if (listingsError) {
-        setError(listingsError.message);
-        setListings([]);
-        setIsLoadingListings(false);
-        return;
-      }
-
-      setListings(data ?? []);
-      setIsLoadingListings(false);
-    }
-
-    loadListings();
-  }, [selectedRegionId]);
 
   useEffect(() => {
     async function loadMyListings() {
@@ -240,6 +216,122 @@ function App() {
     setMyListings([]);
   }
 
+  function handleLoadListingsForCategory(categorySlug) {
+    async function run() {
+      const { client, configError } = getSupabaseClient();
+      if (configError || !client || !selectedRegionId) return;
+
+      setIsLoadingListings(true);
+      let query = client
+        .from("listings")
+        .select("id, title, price_label, price_min, price_max, location_text, created_at")
+        .eq("region_id", selectedRegionId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(24);
+
+      if (categorySlug) {
+        const category = categories.find((item) => item.slug === categorySlug);
+        if (!category) {
+          setListings([]);
+          setIsLoadingListings(false);
+          return;
+        }
+        query = query.eq("category_id", category.id);
+      }
+
+      const { data, error: listingsError } = await query;
+      if (listingsError) {
+        setError(listingsError.message);
+        setListings([]);
+      } else {
+        setListings(data ?? []);
+      }
+      setIsLoadingListings(false);
+    }
+    run();
+  }
+
+  function ListingsSection({ activeCategorySlug }) {
+    const navigate = useNavigate();
+    const categoryLabel =
+      activeCategorySlug &&
+      categories.find((item) => item.slug === activeCategorySlug)?.name;
+
+    useEffect(() => {
+      handleLoadListingsForCategory(activeCategorySlug);
+    }, [activeCategorySlug]);
+
+    return (
+      <section className="card">
+        <div className="row wrap">
+          <h2>Recent listings{categoryLabel ? ` - ${categoryLabel}` : ""}</h2>
+          <select
+            className="region-select"
+            value={activeCategorySlug ?? ""}
+            onChange={(event) => {
+              const slug = event.target.value;
+              navigate(slug ? `/category/${slug}` : "/");
+            }}
+          >
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.slug}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="category-links">
+          <Link to="/" className={!activeCategorySlug ? "category-link active" : "category-link"}>
+            All
+          </Link>
+          {categories.map((category) => (
+            <Link
+              key={category.id}
+              to={`/category/${category.slug}`}
+              className={
+                activeCategorySlug === category.slug
+                  ? "category-link active"
+                  : "category-link"
+              }
+            >
+              {category.name}
+            </Link>
+          ))}
+        </div>
+
+        {isLoadingListings ? <p>Loading listings...</p> : null}
+        {!isLoadingListings && listings.length === 0 ? (
+          <p>No listings found for this region/category yet.</p>
+        ) : null}
+        <div className="listing-grid">
+          {listings.map((listing) => (
+            <article key={listing.id} className="listing-card">
+              <h3>{listing.title}</h3>
+              <p className="price">{formatPrice(listing)}</p>
+              <p className="meta">{listing.location_text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  function AllListingsRoute() {
+    return <ListingsSection activeCategorySlug={null} />;
+  }
+
+  function CategoryListingsRoute() {
+    const { categorySlug } = useParams();
+    const isValid = categories.some((item) => item.slug === categorySlug);
+    if (!isValid && categories.length > 0) {
+      return <Navigate to="/" replace />;
+    }
+    return <ListingsSection activeCategorySlug={categorySlug} />;
+  }
+
   return (
     <main className="app-shell">
       <h1>Modern Craigslist MVP</h1>
@@ -329,22 +421,11 @@ function App() {
         {authMessage ? <p className="hint">{authMessage}</p> : null}
       </section>
 
-      <section className="card">
-        <h2>Recent listings</h2>
-        {isLoadingListings ? <p>Loading listings...</p> : null}
-        {!isLoadingListings && listings.length === 0 ? (
-          <p>No listings found for this region yet.</p>
-        ) : null}
-        <div className="listing-grid">
-          {listings.map((listing) => (
-            <article key={listing.id} className="listing-card">
-              <h3>{listing.title}</h3>
-              <p className="price">{formatPrice(listing)}</p>
-              <p className="meta">{listing.location_text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <Routes>
+        <Route path="/" element={<AllListingsRoute />} />
+        <Route path="/category/:categorySlug" element={<CategoryListingsRoute />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       <section className="card">
         <h2>My account</h2>
