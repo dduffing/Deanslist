@@ -19,6 +19,7 @@ function App() {
   const [passwordInput, setPasswordInput] = useState("");
   const [myListings, setMyListings] = useState([]);
   const [isLoadingMyListings, setIsLoadingMyListings] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     async function checkConnection() {
@@ -214,6 +215,13 @@ function App() {
 
     setAuthMessage("Signed out.");
     setMyListings([]);
+    setIsAccountMenuOpen(false);
+  }
+
+  function connectionToneClass() {
+    if (error) return "tone-error";
+    if (status.includes("reachable")) return "tone-ok";
+    return "tone-warn";
   }
 
   function handleLoadListingsForCategory(categorySlug) {
@@ -334,8 +342,94 @@ function App() {
 
   return (
     <main className="app-shell">
-      <h1>Modern Craigslist MVP</h1>
-      <p className="subtitle">React + Vite + Supabase starter</p>
+      <header className="top-bar">
+        <div>
+          <h1>Modern Craigslist MVP</h1>
+          <p className="subtitle">React + Vite + Supabase starter</p>
+        </div>
+        <div className="top-ribbon">
+          <span
+            className={`status-pill ${connectionToneClass()}`}
+            title={error ? `${status} - ${error}` : status}
+            aria-label={status}
+          >
+            <span className="dot" />
+            DB
+          </span>
+          <div className="account-menu-wrap">
+            <button
+              type="button"
+              className="icon-pill"
+              onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+            >
+              {session ? "👤" : "🔐"}
+            </button>
+            {isAccountMenuOpen ? (
+              <div className="account-popover">
+                <h3>Account</h3>
+                {isAuthLoading ? <p>Checking session...</p> : null}
+                {!isAuthLoading && !session ? (
+                  <form className="auth-form compact">
+                    <label>
+                      Email
+                      <input
+                        type="email"
+                        value={emailInput}
+                        onChange={(event) => setEmailInput(event.target.value)}
+                        placeholder="you@example.com"
+                        required
+                      />
+                    </label>
+                    <label>
+                      Password
+                      <input
+                        type="password"
+                        value={passwordInput}
+                        onChange={(event) => setPasswordInput(event.target.value)}
+                        placeholder="At least 6 characters"
+                        minLength={6}
+                        required
+                      />
+                    </label>
+                    <div className="auth-actions">
+                      <button type="button" onClick={handleSignIn}>
+                        Sign in
+                      </button>
+                      <button type="button" className="secondary" onClick={handleSignUp}>
+                        Create
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+                {!isAuthLoading && session ? (
+                  <>
+                    <p className="hint">
+                      Signed in as <strong>{session.user.email}</strong>
+                    </p>
+                    <button type="button" onClick={handleSignOut}>
+                      Sign out
+                    </button>
+                    <h4>My listings</h4>
+                    {isLoadingMyListings ? <p>Loading...</p> : null}
+                    {!isLoadingMyListings && myListings.length === 0 ? (
+                      <p>No listings yet.</p>
+                    ) : null}
+                    <ul className="simple-list compact">
+                      {myListings.slice(0, 5).map((listing) => (
+                        <li key={listing.id}>
+                          <span>{listing.title}</span>
+                          <span className="badge">{listing.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {authMessage ? <p className="hint">{authMessage}</p> : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </header>
 
       <section className="card">
         <div className="row">
@@ -359,95 +453,12 @@ function App() {
         </div>
       </section>
 
-      <section className="card">
-        <h2>Connection status</h2>
-        <p>{status}</p>
-        {error ? <pre className="error">{error}</pre> : null}
-      </section>
-
-      <section className="card">
-        <h2>Account</h2>
-        {isAuthLoading ? <p>Checking session...</p> : null}
-        {!isAuthLoading && !session ? (
-          <form className="auth-form">
-            <label>
-              Email
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(event) => setEmailInput(event.target.value)}
-                placeholder="you@example.com"
-                required
-              />
-            </label>
-            <label>
-              Password
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(event) => setPasswordInput(event.target.value)}
-                placeholder="At least 6 characters"
-                minLength={6}
-                required
-              />
-            </label>
-            <div className="auth-actions">
-              <button type="button" onClick={handleSignIn}>
-                Sign in
-              </button>
-              <button type="button" className="secondary" onClick={handleSignUp}>
-                Create account
-              </button>
-            </div>
-            <p className="hint">
-              After sign-up, check your email and confirm your account before
-              signing in. If a link opens localhost, update Supabase Auth Site URL
-              and Redirect URLs to this Netlify domain.
-            </p>
-          </form>
-        ) : null}
-
-        {!isAuthLoading && session ? (
-          <div className="account-shell">
-            <p>
-              Signed in as <strong>{session.user.email}</strong>
-            </p>
-            <button type="button" onClick={handleSignOut}>
-              Sign out
-            </button>
-          </div>
-        ) : null}
-
-        {authMessage ? <p className="hint">{authMessage}</p> : null}
-      </section>
-
       <Routes>
         <Route path="/" element={<AllListingsRoute />} />
         <Route path="/category/:categorySlug" element={<CategoryListingsRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-
-      <section className="card">
-        <h2>My account</h2>
-        {!session ? (
-          <p>Sign in to view your listings dashboard.</p>
-        ) : (
-          <>
-            {isLoadingMyListings ? <p>Loading your listings...</p> : null}
-            {!isLoadingMyListings && myListings.length === 0 ? (
-              <p>You have no listings yet.</p>
-            ) : null}
-            <ul className="simple-list">
-              {myListings.map((listing) => (
-                <li key={listing.id}>
-                  <span>{listing.title}</span>
-                  <span className="badge">{listing.status}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+      {error ? <pre className="error">{error}</pre> : null}
     </main>
   );
 }

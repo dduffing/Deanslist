@@ -18,6 +18,13 @@ body {
   padding: 2rem 1rem 3rem;
 }
 
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 h1 {
   margin-bottom: 0.25rem;
 }
@@ -107,10 +114,74 @@ h1 {
   color: #fff;
 }
 
+.top-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.status-pill,
+.icon-pill {
+  border-radius: 999px;
+  border: 1px solid #d9d9ea;
+  background: #fff;
+  min-height: 32px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.tone-ok .dot {
+  background: #16a34a;
+}
+
+.tone-warn .dot {
+  background: #ca8a04;
+}
+
+.tone-error .dot {
+  background: #dc2626;
+}
+
+.account-menu-wrap {
+  position: relative;
+}
+
+.account-popover {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  width: min(360px, 90vw);
+  border: 1px solid #e2e3f1;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.85rem;
+  box-shadow: 0 10px 30px rgba(20, 20, 50, 0.12);
+  z-index: 20;
+}
+
+.account-popover h3,
+.account-popover h4 {
+  margin: 0 0 0.6rem;
+}
+
 .auth-form {
   display: grid;
   gap: 0.75rem;
   max-width: 460px;
+}
+
+.auth-form.compact {
+  max-width: none;
 }
 
 .auth-form label {
@@ -163,6 +234,11 @@ button.secondary {
   padding: 0;
   display: grid;
   gap: 0.5rem;
+}
+
+.simple-list.compact li {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
 }
 
 .simple-list li {
